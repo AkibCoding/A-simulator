@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A* Search Algorithm Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better visual appeal, especially for the canvas and buttons */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+        }
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px; /* Rounded corners for the main container */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        canvas {
+            display: block;
+            background-color: #e2e8f0; /* Light gray for canvas background */
+            border-radius: 8px; /* Rounded corners for canvas */
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+            width: 100%; /* Make canvas responsive */
+            height: auto; /* Maintain aspect ratio */
+            cursor: grab; /* Default cursor */
+        }
+        canvas.dragging-mode {
+            cursor: grabbing;
+        }
+        button {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        select {
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            padding: 8px 12px;
+            background-color: #f8fafc;
+            transition: all 0.2s ease-in-out;
+        }
+        select:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo focus ring */
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+        }
+        /* Style for input fields */
+        input[type="text"], input[type="number"] {
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            padding: 8px 12px;
+            background-color: #f8fafc;
+            transition: all 0.2s ease-in-out;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        table th, table td {
+            border: 1px solid #cbd5e0;
+            padding: 8px;
+            text-align: left;
+        }
+        table th {
+            background-color: #e2e8f0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">A* Search Algorithm Simulator</h1>
+
+        <!-- Graph Creation Section -->
+        <div class="bg-gray-50 p-6 rounded-lg mb-6 border border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Define Your Graph</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <!-- Add Node Section -->
+                <div class="flex flex-col gap-2 p-3 border border-gray-200 rounded-lg bg-white">
+                    <h3 class="font-medium text-gray-700">Add Node:</h3>
+                    <input type="text" id="nodeIdInput" class="p-1 text-sm" placeholder="Node ID (e.g., A)">
+                    <button id="addNodeBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                        Add Node
+                    </button>
+                </div>
+
+                <!-- Add Edge Section -->
+                <div class="flex flex-col gap-2 p-3 border border-gray-200 rounded-lg bg-white">
+                    <h3 class="font-medium text-gray-700">Add Edge (e.g., A B 5):</h3>
+                    <input type="text" id="edgeStringInput" class="p-1 text-sm" placeholder="Node1 Node2 Weight">
+                    <button id="addEdgeFromStringBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                        Add Edge
+                    </button>
+                </div>
+
+                <!-- Clear Graph & Delete Node -->
+                <div class="flex flex-col gap-2 p-3 border border-gray-200 rounded-lg bg-white">
+                    <h3 class="font-medium text-gray-700">Graph Actions:</h3>
+                    <input type="text" id="deleteNodeIdInput" class="p-1 text-sm" placeholder="Node ID to Delete">
+                    <button id="deleteNodeBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                        Delete Node
+                    </button>
+                    <button id="clearGraphBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                        Clear All Graph
+                    </button>
+                </div>
+            </div>
+            <p id="modeMessage" class="text-center text-sm text-gray-600 mt-2">Current Mode: Drag Nodes</p>
+        </div>
+
+        <!-- A* Control Section -->
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6">
+            <div class="flex items-center gap-2">
+                <label for="startNode" class="text-gray-700 font-medium">Start Node:</label>
+                <select id="startNode" class="w-24">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="goalNode" class="text-gray-700 font-medium">Goal Node:</label>
+                <select id="goalNode" class="w-24">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+            <button id="runAStar" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg">
+                Run A* Search
+            </button>
+            <button id="resetSimulation" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg">
+                Reset Simulation
+            </button>
+        </div>
+
+        <canvas id="aStarCanvas" width="800" height="450" class="mb-6"></canvas>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-3">Simulation Results:</h2>
+                <div id="results" class="bg-gray-100 p-4 rounded-lg border border-gray-200">
+                    <p class="text-gray-700"><strong class="text-indigo-700">Path:</strong> <span id="pathOutput">N/A</span></p>
+                    <p class="text-gray-700"><strong class="text-indigo-700">Total Cost:</strong> <span id="costOutput">N/A</span></p>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-3">Manual Heuristic Values (h(n)):</h2>
+                <div class="bg-gray-100 p-4 rounded-lg border border-gray-200 overflow-auto max-h-48">
+                    <table id="heuristicInputTable" class="w-full">
+                        <thead>
+                            <tr>
+                                <th>Node ID</th>
+                                <th>h(n)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="heuristicTableBody">
+                            <!-- Dynamic input rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                <button id="updateHeuristicsBtn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg text-sm mt-3 w-full">
+                    Update Heuristic Values
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-3">Legend:</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-gray-700">
+                <div class="legend-item"><div class="legend-color-box bg-green-500"></div>Start Node</div>
+                <div class="legend-item"><div class="legend-color-box bg-red-500"></div>Goal Node</div>
+                <div class="legend-item"><div class="legend-color-box bg-blue-300"></div>In Open List</div>
+                <div class="legend-item"><div class="legend-color-box bg-purple-500"></div>In Closed List</div>
+                <div class="legend-item"><div class="legend-color-box bg-yellow-400"></div>Current Node</div>
+                <div class="legend-item"><div class="legend-color-box bg-green-600"></div>Optimal Path</div>
+                <div class="legend-item"><div class="legend-color-box border-2 border-blue-500" style="background-color: transparent;"></div>Hover Highlight</div>
+                <div class="legend-item"><div class="legend-color-box border-2 border-indigo-600" style="background-color: transparent;"></div>Selected Node</div>
+                <div class="legend-item"><div class="legend-color-box border border-green-600" style="background-color: #22c55e;"></div>Dragging Indicator</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Node Class Definition ---
+        class Node {
+            constructor(id, x, y, parent = null, g = Infinity, h = 0) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.parent = parent;
+                this.g = g; // Cost from the start node to this node
+                this.h = h; // Estimated cost from this node to the goal node (heuristic)
+                this.f = this.g + this.h; // Total estimated cost (g + h)
+            }
+
+            // This method is essential for sorting in the priority queue (heap)
+            // It ensures that nodes with lower f-cost are prioritized.
+            valueOf() {
+                return this.f;
+            }
+        }
+
+        // --- 2. Graph Data (Now mutable) ---
+        let NODES_DATA = {}; // Stores node_id: {x, y, h}
+        let GRAPH_EDGES = {}; // Stores node_id: {neighbor_id: edge_cost}
+        let nextDefaultNodePosition = 0; // For sequential default positioning
+
+        // --- 3. Heuristic Function (Removed as h(n) is now manual) ---
+        // function manhattanDistance(pos1, pos2) {
+        //     return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
+        // }
+
+        // --- Global Variables for Canvas and Animation ---
+        const canvas = document.getElementById('aStarCanvas');
+        const ctx = canvas.getContext('2d');
+        const startNodeSelect = document.getElementById('startNode');
+        const goalNodeSelect = document.getElementById('goalNode');
+        const runAStarBtn = document.getElementById('runAStar');
+        const resetSimulationBtn = document.getElementById('resetSimulation');
+        const pathOutput = document.getElementById('pathOutput');
+        const costOutput = document.getElementById('costOutput');
+        const heuristicTableBody = document.getElementById('heuristicTableBody'); // Get table body
+        const updateHeuristicsBtn = document.getElementById('updateHeuristicsBtn'); // New button
+
+        // Graph Creation Elements
+        const nodeIdInput = document.getElementById('nodeIdInput'); // Input for manual node ID
+        const addNodeBtn = document.getElementById('addNodeBtn'); // Button to add node
+        const edgeStringInput = document.getElementById('edgeStringInput');
+        const addEdgeFromStringBtn = document.getElementById('addEdgeFromStringBtn');
+        const clearGraphBtn = document.getElementById('clearGraphBtn');
+        const modeMessage = document.getElementById('modeMessage');
+        const deleteNodeIdInput = document.getElementById('deleteNodeIdInput');
+        const deleteNodeBtn = document.getElementById('deleteNodeBtn');
+
+        let animationSteps = []; // Stores states for each step of the animation
+        let currentAnimationFrame = 0;
+        let animationIntervalId = null;
+        const ANIMATION_SPEED_MS = 500; // Milliseconds per step
+        const NODE_RADIUS = 20;
+
+        // Interactive Graph Creation State
+        let currentMode = 'none'; // 'none', 'dragging'
+        let draggedNodeId = null; // Stores the ID of the node currently being dragged
+        let hoveredNodeId = null; // Stores the ID of the node currently being hovered over
+        let selectedNodeId = null; // Stores the ID of the currently selected node
+
+        // --- Utility Functions for Drawing ---
+        function drawNode(nodeId, color, radius = NODE_RADIUS, textColor = '#ffffff', nodeDetails = null) {
+            const pos = NODES_DATA[nodeId];
+            if (!pos) return;
+
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = textColor;
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(nodeId, pos.x, pos.y);
+
+            // Draw g, h, f values if provided
+            if (nodeDetails) {
+                ctx.fillStyle = '#333'; // Text color for values
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                // Draw g(n)
+                ctx.fillText(`g: ${nodeDetails.g.toFixed(1)}`, pos.x, pos.y + radius + 10);
+                // Draw h(n)
+                ctx.fillText(`h: ${nodeDetails.h.toFixed(1)}`, pos.x, pos.y + radius + 20);
+                // Draw f(n)
+                ctx.fillText(`f: ${nodeDetails.f.toFixed(1)}`, pos.x, pos.y + radius + 30);
+            }
+
+
+            // Add hover highlight (if not selected and not being dragged)
+            if (nodeId === hoveredNodeId && nodeId !== draggedNodeId && nodeId !== selectedNodeId) {
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, radius + 3, 0, Math.PI * 2); // Slightly larger circle
+                ctx.strokeStyle = '#3b82f6'; // Blue for hover
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Add selected highlight
+            if (nodeId === selectedNodeId) {
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, radius + 4, 0, Math.PI * 2); // Even larger circle for selection
+                ctx.strokeStyle = '#4f46e5'; // Indigo for selected
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+
+            // Add dragging indicator if this node is being dragged
+            if (nodeId === draggedNodeId) {
+                ctx.beginPath();
+                // Position the indicator (e.g., top-right of the node)
+                ctx.arc(pos.x + radius - 5, pos.y - radius + 5, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#22c55e'; // Green color for dragging
+                ctx.fill();
+                ctx.strokeStyle = '#16a34a'; // Darker green border
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        function drawEdge(node1Id, node2Id, cost, color = '#666', thickness = 2) {
+            const pos1 = NODES_DATA[node1Id];
+            const pos2 = NODES_DATA[node2Id];
+            if (!pos1 || !pos2) return;
+
+            ctx.beginPath();
+            ctx.moveTo(pos1.x, pos1.y);
+            ctx.lineTo(pos2.x, pos2.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = thickness;
+            ctx.stroke();
+
+            // Draw cost text in the middle of the edge
+            const midX = (pos1.x + pos2.x) / 2;
+            const midY = (pos1.y + pos2.y) / 2;
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // To avoid text overlapping, draw a background rectangle
+            const text = String(cost);
+            const textWidth = ctx.measureText(text).width;
+            const textHeight = 14; // Approx font height
+            ctx.fillStyle = '#e2e8f0'; // Background color of canvas
+            ctx.fillRect(midX - textWidth / 2 - 2, midY - textHeight / 2 - 2, textWidth + 4, textHeight + 4);
+            ctx.fillStyle = '#333'; // Text color for cost
+            ctx.fillText(text, midX, midY - 5);
+        }
+
+        function drawGraph(highlightedNodes = {}, pathNodes = [], currentNodeId = null, nodeDetailsMap = {}) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            // Draw all edges first
+            for (const nodeId in GRAPH_EDGES) {
+                for (const neighborId in GRAPH_EDGES[nodeId]) {
+                    // Draw each edge only once for undirected graph
+                    if (NODES_DATA[nodeId] && NODES_DATA[neighborId] && nodeId < neighborId) {
+                        drawEdge(nodeId, neighborId, GRAPH_EDGES[nodeId][neighborId]);
+                    }
+                }
+            }
+
+            // Draw all nodes
+            for (const nodeId in NODES_DATA) {
+                let color = '#a0aec0'; // Default node color (gray)
+                if (highlightedNodes.open && highlightedNodes.open.has(nodeId)) {
+                    color = '#90cdf4'; // Blue for open list
+                }
+                if (highlightedNodes.closed && highlightedNodes.closed.has(nodeId)) {
+                    color = '#a78bfa'; // Purple for closed list
+                }
+                if (nodeId === startNodeSelect.value && NODES_DATA[startNodeSelect.value]) {
+                    color = '#34d399'; // Green for start
+                }
+                if (nodeId === goalNodeSelect.value && NODES_DATA[goalNodeSelect.value]) {
+                    color = '#ef4444'; // Red for goal
+                }
+                // Pass node details if available for this node
+                drawNode(nodeId, color, NODE_RADIUS, '#ffffff', nodeDetailsMap[nodeId]);
+            }
+
+            // Highlight current node being expanded
+            if (currentNodeId && NODES_DATA[currentNodeId]) {
+                drawNode(currentNodeId, '#fbbf24', NODE_RADIUS + 2, '#333', nodeDetailsMap[currentNodeId]); // Yellow for current node
+            }
+
+            // Draw optimal path on top if available
+            if (pathNodes.length > 1) {
+                for (let i = 0; i < pathNodes.length - 1; i++) {
+                    const node1 = pathNodes[i];
+                    const node2 = pathNodes[i+1];
+                    if (GRAPH_EDGES[node1] && GRAPH_EDGES[node1][node2]) { // Ensure edge exists
+                        drawEdge(node1, node2, GRAPH_EDGES[node1][node2], '#10b981', 4); // Green for path
+                    }
+                }
+                for (const nodeId of pathNodes) {
+                    if (NODES_DATA[nodeId]) {
+                        drawNode(nodeId, '#10b981', NODE_RADIUS, '#ffffff', nodeDetailsMap[nodeId]); // Green for path nodes
+                    }
+                }
+            }
+        }
+
+        // --- Graph Management Functions ---
+        function addNodeFromInput() {
+            const id = nodeIdInput.value.trim().toUpperCase();
+
+            if (!id) {
+                alert("Please enter a Node ID.");
+                return;
+            }
+            if (NODES_DATA[id]) {
+                alert(`Node ID '${id}' already exists. Please use a unique ID.`);
+                return;
+            }
+
+            // Calculate a default position for the new node
+            const x = (50 + (nextDefaultNodePosition % 8) * 90) % (canvas.width - 50);
+            const y = 50 + Math.floor(nextDefaultNodePosition / 8) * 90;
+            nextDefaultNodePosition++;
+
+            NODES_DATA[id] = { x, y, h: 0 }; // Initialize h to 0 for new node
+            GRAPH_EDGES[id] = {}; // Initialize empty adjacency list for new node
+            populateNodeSelects();
+            drawGraph(); // Redraw with new node
+            renderHeuristicInputs(); // Update heuristic table when new node is added
+            resetSimulationResults();
+            updateModeMessage(`Node '${id}' added. Click to select, then drag.`);
+            nodeIdInput.value = ''; // Clear input field
+        }
+
+        function getClickedNode(mouseX, mouseY) {
+            for (const id in NODES_DATA) {
+                const pos = NODES_DATA[id];
+                const distance = Math.sqrt(Math.pow(mouseX - pos.x, 2) + Math.pow(mouseY - pos.y, 2));
+                if (distance <= NODE_RADIUS) {
+                    return id;
+                }
+            }
+            return null;
+        }
+
+        function addEdgeFromString() {
+            const input = edgeStringInput.value.trim();
+            const parts = input.split(/\s+/); // Split by one or more spaces
+
+            if (parts.length !== 3) {
+                alert("Please enter edge details in the format: Node1 Node2 Weight (e.g., A B 5).");
+                return;
+            }
+
+            const node1Id = parts[0].toUpperCase();
+            const node2Id = parts[1].toUpperCase();
+            const weight = parseFloat(parts[2]);
+
+            if (!NODES_DATA[node1Id] || !NODES_DATA[node2Id]) {
+                alert(`One or both nodes ('${node1Id}', '${node2Id}') do not exist. Please create them first.`);
+                return;
+            }
+            if (node1Id === node2Id) {
+                alert("Cannot create an edge from a node to itself.");
+                return;
+            }
+            if (isNaN(weight) || weight <= 0) {
+                alert("Please enter a valid positive number for the edge weight.");
+                return;
+            }
+
+            // Add edge for undirected graph (both directions)
+            if (!GRAPH_EDGES[node1Id]) GRAPH_EDGES[node1Id] = {};
+            if (!GRAPH_EDGES[node2Id]) GRAPH_EDGES[node2Id] = {};
+
+            GRAPH_EDGES[node1Id][node2Id] = weight;
+            GRAPH_EDGES[node2Id][node1Id] = weight;
+
+            updateModeMessage(`Edge ${node1Id}-${node2Id} (Weight: ${weight}) added.`);
+            edgeStringInput.value = ''; // Clear input
+            drawGraph();
+            resetSimulationResults();
+        }
+
+        function deleteNode() {
+            const idToDelete = deleteNodeIdInput.value.trim().toUpperCase();
+            if (!idToDelete) {
+                alert("Please enter a Node ID to delete.");
+                return;
+            }
+            if (!NODES_DATA[idToDelete]) {
+                alert(`Node '${idToDelete}' does not exist.`);
+                return;
+            }
+
+            // If the deleted node was selected or dragged, clear those states
+            if (selectedNodeId === idToDelete) {
+                selectedNodeId = null;
+            }
+            if (draggedNodeId === idToDelete) {
+                draggedNodeId = null;
+                isDragging = false;
+            }
+
+
+            // Remove node from NODES_DATA
+            delete NODES_DATA[idToDelete];
+            // Remove node's own entry from GRAPH_EDGES
+            delete GRAPH_EDGES[idToDelete];
+
+            // Remove any edges connected to the deleted node from other nodes
+            for (const nodeId in GRAPH_EDGES) {
+                if (GRAPH_EDGES[nodeId][idToDelete]) {
+                    delete GRAPH_EDGES[nodeId][idToDelete];
+                }
+            }
+            
+            deleteNodeIdInput.value = ''; // Clear input
+            populateNodeSelects(); // Update dropdowns
+            drawGraph(); // Redraw graph
+            renderHeuristicInputs(); // Update heuristic table
+            resetSimulationResults(); // Clear simulation results
+            updateModeMessage(`Node '${idToDelete}' and its edges deleted.`);
+        }
+
+
+        let isDragging = false;
+        let dragOffsetX, dragOffsetY;
+
+        function handleMouseDown(event) {
+            console.log("handleMouseDown triggered. isDragging:", isDragging, "draggedNodeId:", draggedNodeId, "selectedNodeId:", selectedNodeId);
+            // Only allow interaction in 'none' mode (not during animation or other special modes)
+            if (currentMode !== 'none') {
+                return;
+            }
+
+            const clickedNodeId = getClickedNode(event.offsetX, event.offsetY);
+            console.log("Clicked node ID:", clickedNodeId);
+
+            if (clickedNodeId) {
+                if (clickedNodeId === selectedNodeId) {
+                    // If the clicked node is already selected, start dragging it
+                    isDragging = true;
+                    draggedNodeId = clickedNodeId;
+                    const pos = NODES_DATA[draggedNodeId];
+                    // Calculate offset from the node's center to the mouse click point
+                    dragOffsetX = event.offsetX - pos.x;
+                    dragOffsetY = event.offsetY - pos.y;
+                    
+                    canvas.classList.add('dragging-mode');
+                    updateModeMessage(`Dragging Node: ${draggedNodeId}`);
+                    drawGraph(); // Redraw immediately to show the green indicator
+                } else {
+                    // If a different node is clicked, select it
+                    selectedNodeId = clickedNodeId;
+                    draggedNodeId = null; // Ensure not dragging initially
+                    isDragging = false;
+                    updateModeMessage(`Node '${selectedNodeId}' selected. Click again to drag.`);
+                    drawGraph(); // Redraw to show selection highlight
+                }
+            } else {
+                // Clicked on empty canvas, deselect current node
+                selectedNodeId = null;
+                draggedNodeId = null;
+                isDragging = false;
+                updateModeMessage("Current Mode: Drag Nodes");
+                drawGraph(); // Redraw to remove selection highlight
+            }
+        }
+
+        function handleMouseMove(event) {
+            if (!isDragging) {
+                // Update hover effect only if not currently dragging
+                const nodeUnderMouse = getClickedNode(event.offsetX, event.offsetY);
+                if (nodeUnderMouse !== hoveredNodeId) {
+                    hoveredNodeId = nodeUnderMouse;
+                    drawGraph(); // Redraw to show/hide hover effect
+                }
+            }
+            
+            if (!isDragging || !draggedNodeId) return; // Only proceed if actively dragging a node
+
+            const newX = event.offsetX - dragOffsetX;
+            const newY = event.offsetY - dragOffsetY;
+
+            // Constrain to canvas bounds
+            NODES_DATA[draggedNodeId].x = Math.max(NODE_RADIUS, Math.min(canvas.width - NODE_RADIUS, newX));
+            NODES_DATA[draggedNodeId].y = Math.max(NODE_RADIUS, Math.min(canvas.height - NODE_RADIUS, newY));
+            
+            drawGraph(); // Redraw constantly while dragging
+            renderHeuristicInputs(); // Heuristic values might change if goal node is moved (though not used in current h(n) setup)
+            resetSimulationResults(); // Clear results as graph changed
+        }
+
+        function handleMouseUp() {
+            console.log("handleMouseUp triggered. isDragging before reset:", isDragging, "draggedNodeId before reset:", draggedNodeId);
+            if (isDragging) { // Only reset dragging state if a drag was active
+                isDragging = false;
+                draggedNodeId = null; // Clear dragged node ID
+                canvas.classList.remove('dragging-mode');
+                updateModeMessage("Node selected. Drag again to reposition."); // Keep selected message
+                populateNodeSelects(); // Update dropdowns after repositioning
+                drawGraph(); // Redraw to remove the green indicator
+                console.log("Drag ended. isDragging is now:", isDragging, "draggedNodeId is now:", draggedNodeId); // Debugging log
+            }
+        }
+
+        function handleCanvasMouseOut(event) {
+            // If dragging, and mouse leaves canvas, end the drag.
+            // This prevents the drag state from getting stuck if mouseup happens outside.
+            if (isDragging) {
+                handleMouseUp(); // End the drag
+            }
+            // Always clear hover state when mouse leaves canvas
+            if (hoveredNodeId !== null) {
+                hoveredNodeId = null;
+                drawGraph();
+            }
+        }
+
+
+        function setMode(mode) {
+            currentMode = mode;
+            canvas.classList.remove('add-node-mode', 'dragging-mode');
+            // Clear selection if mode changes (optional, but good for consistency)
+            selectedNodeId = null; 
+            draggedNodeId = null;
+            isDragging = false;
+            drawGraph(); // Redraw to reflect mode change and cleared selection
+
+            switch (mode) {
+                case 'addNode':
+                    updateModeMessage("Mode: Add Node. Enter ID and click 'Add Node' button.");
+                    break;
+                case 'none':
+                default:
+                    updateModeMessage("Current Mode: Drag Nodes. Click a node to select, then drag.");
+                    break;
+            }
+        }
+
+        function updateModeMessage(message) {
+            modeMessage.textContent = message;
+        }
+
+        function clearGraph() {
+            NODES_DATA = {};
+            GRAPH_EDGES = {};
+            nextDefaultNodePosition = 0; // Reset default position counter
+            setMode('none'); // Reset mode, which also clears selection
+            populateNodeSelects(); // Clear dropdowns
+            drawGraph(); // Clear canvas
+            resetSimulationResults(); // Clear results
+            renderHeuristicInputs(); // Clear heuristic table
+            alert("Graph cleared. You can now add new nodes and edges.");
+        }
+
+        function resetSimulationResults() {
+            clearInterval(animationIntervalId);
+            animationSteps = [];
+            currentAnimationFrame = 0;
+            pathOutput.textContent = 'N/A';
+            costOutput.textContent = 'N/A';
+            drawGraph(); // Redraw current graph state without animation
+        }
+
+        // --- A* Search Algorithm ---
+        function aStarSearch() {
+            const startId = startNodeSelect.value;
+            const goalId = goalNodeSelect.value;
+
+            if (!startId || !goalId || startId === goalId) {
+                alert("Please select valid and different Start and Goal nodes.");
+                return;
+            }
+            if (!NODES_DATA[startId] || !NODES_DATA[goalId]) {
+                alert("Start or Goal node does not exist in the current graph.");
+                return;
+            }
+            if (Object.keys(GRAPH_EDGES[startId] || {}).length === 0 && startId !== goalId) {
+                 alert(`Start node '${startId}' has no outgoing edges. Cannot find a path.`);
+                 return;
+            }
+            // Note: No check for goal node having outgoing edges as it's a destination.
+
+            setMode('none'); // Ensure no creation mode is active during search
+            resetSimulationResults(); // Reset animation and results
+
+            // Priority Queue (min-heap) - using an array and sort for simplicity, or a custom heap implementation
+            let openList = []; // Stores Node objects
+            
+            // Set to store IDs of nodes that have already been fully expanded
+            let closedList = new Set();
+
+            // Map to store the lowest g-cost found to reach each node so far.
+            let gScores = {}; // {node_id: g_cost}
+
+            // Map to keep track of the actual Node objects, keyed by ID,
+            // to easily update parent pointers and costs if a better path is found.
+            let allNodes = {}; // Stores Node objects (id -> Node instance)
+
+            // Initialize start node using its manually set h value
+            const startNode = new Node(startId, NODES_DATA[startId].x, NODES_DATA[startId].y, null, 0, NODES_DATA[startId].h);
+            gScores[startId] = 0;
+            allNodes[startId] = startNode;
+            
+            // Add start node to open list
+            openList.push(startNode);
+            // Sort openList to simulate priority queue (lowest f-cost first)
+            openList.sort((a, b) => a.f - b.f);
+
+            // Record initial state for animation
+            animationSteps.push({
+                open: new Set(openList.map(node => node.id)),
+                closed: new Set(closedList),
+                currentNode: null,
+                path: [],
+                cost: null,
+                nodeDetailsMap: createNodeDetailsMap(allNodes) // Store g,h,f for all relevant nodes
+            });
+
+            let lastExpandedNode = null; // Keep track of the last node expanded for "No Path Found" case
+
+            while (openList.length > 0) {
+                // Get the node with the lowest f-cost
+                const currentNode = openList.shift(); // Get the first element after sorting
+                lastExpandedNode = currentNode; // Update last expanded node
+
+                // If this node has already been processed with a better or equal path, skip it.
+                // This check is crucial if nodes can be added to openList multiple times
+                // with different costs before being expanded.
+                if (closedList.has(currentNode.id)) {
+                    continue;
+                }
+
+                // Add current node to closed list
+                closedList.add(currentNode.id);
+
+                // Record current state for animation
+                animationSteps.push({
+                    open: new Set(openList.map(node => node.id)),
+                    closed: new Set(closedList),
+                    currentNode: currentNode.id,
+                    path: [], // Path not yet known for animation steps
+                    cost: null,
+                    nodeDetailsMap: createNodeDetailsMap(allNodes)
+                });
+
+                // Check if goal is reached
+                if (currentNode.id === goalId) {
+                    const path = [];
+                    let temp = currentNode;
+                    while (temp) {
+                        path.unshift(temp.id); // Add to the beginning to reconstruct path from start
+                        temp = temp.parent;
+                    }
+                    const totalCost = currentNode.g;
+
+                    // Record final state for animation
+                    animationSteps.push({
+                        open: new Set(),
+                        closed: new Set(closedList),
+                        currentNode: null,
+                        path: path,
+                        cost: totalCost,
+                        nodeDetailsMap: createNodeDetailsMap(allNodes)
+                    });
+                    
+                    pathOutput.textContent = path.join(' -> ');
+                    costOutput.textContent = totalCost.toFixed(2);
+                    console.log("Path found:", path, "Cost:", totalCost);
+                    animateSearch(); // Start the animation
+                    return;
+                }
+
+                // Explore neighbors
+                const neighbors = GRAPH_EDGES[currentNode.id] || {};
+                for (const neighborId in neighbors) {
+                    const edgeCost = neighbors[neighborId];
+
+                    // Calculate tentative g-score for neighbor through current node
+                    const tentativeGScore = currentNode.g + edgeCost;
+
+                    // If this path to neighbor is better than any previously found path
+                    if (tentativeGScore < (gScores[neighborId] || Infinity)) {
+                        gScores[neighborId] = tentativeGScore;
+
+                        // Use the manually set h-score for the neighbor
+                        const hScore = NODES_DATA[neighborId].h; 
+
+                        const neighborNode = new Node(
+                            neighborId,
+                            NODES_DATA[neighborId].x,
+                            NODES_DATA[neighborId].y,
+                            currentNode, // Set current node as parent
+                            tentativeGScore,
+                            hScore
+                        );
+                        allNodes[neighborId] = neighborNode; // Store/update node object
+
+                        // Add neighbor to open list (or update if already there with worse f-cost)
+                        openList.push(neighborNode);
+                        openList.sort((a, b) => a.f - b.f); // Re-sort to maintain priority
+                    }
+                }
+            }
+
+            // If loop finishes and goal is not reached
+            pathOutput.textContent = 'Failed: No path found';
+            if (lastExpandedNode) {
+                const path = [];
+                let temp = lastExpandedNode;
+                while (temp) {
+                    path.unshift(temp.id);
+                    temp = temp.parent;
+                }
+                costOutput.textContent = `Last Path Cost: ${lastExpandedNode.g.toFixed(2)}`;
+                pathOutput.textContent += ` (Last explored path: ${path.join(' -> ')})`;
+            } else {
+                costOutput.textContent = 'N/A';
+            }
+            console.log("No path found.");
+            animateSearch(); // Start animation even if no path found
+        }
+
+        // Helper to create a map of node details (g, h, f) for drawing
+        function createNodeDetailsMap(allNodes) {
+            const details = {};
+            for (const nodeId in allNodes) {
+                const node = allNodes[nodeId];
+                details[nodeId] = { g: node.g, h: node.h, f: node.f };
+            }
+            return details;
+        }
+
+
+        function animateSearch() {
+            clearInterval(animationIntervalId); // Clear any existing interval
+
+            animationIntervalId = setInterval(() => {
+                if (currentAnimationFrame < animationSteps.length) {
+                    const step = animationSteps[currentAnimationFrame];
+                    drawGraph(step, step.path, step.currentNode, step.nodeDetailsMap);
+                    // Update text outputs only at the end of the animation
+                    if (currentAnimationFrame === animationSteps.length - 1) {
+                         pathOutput.textContent = step.path.length > 0 ? step.path.join(' -> ') : 'Failed: No path found'; // Updated for failure
+                         costOutput.textContent = step.cost !== null ? step.cost.toFixed(2) : (step.path.length > 0 ? `Last Path Cost: ${step.nodeDetailsMap[step.path[step.path.length - 1]].g.toFixed(2)}` : 'N/A'); // Updated for failure
+                    } else {
+                        pathOutput.textContent = 'Searching...';
+                        costOutput.textContent = 'N/A';
+                    }
+                    currentAnimationFrame++;
+                } else {
+                    clearInterval(animationIntervalId); // Stop animation when done
+                }
+            }, ANIMATION_SPEED_MS);
+        }
+
+        function populateNodeSelects() {
+            // Clear existing options
+            startNodeSelect.innerHTML = '<option value="">Select Start</option>';
+            goalNodeSelect.innerHTML = '<option value="">Select Goal</option>';
+
+            const nodeIds = Object.keys(NODES_DATA).sort(); // Sort for consistent order
+
+            nodeIds.forEach(nodeId => {
+                const optionStart = document.createElement('option');
+                optionStart.value = nodeId;
+                optionStart.textContent = nodeId;
+                startNodeSelect.appendChild(optionStart);
+
+                const optionGoal = document.createElement('option');
+                optionGoal.value = nodeId;
+                optionGoal.textContent = nodeId;
+                goalNodeSelect.appendChild(optionGoal);
+            });
+
+            // Attempt to set default selections if nodes exist
+            if (nodeIds.length > 0) {
+                startNodeSelect.value = nodeIds[0];
+                if (nodeIds.length > 1) {
+                    goalNodeSelect.value = nodeIds[nodeIds.length - 1]; // Last node as default goal
+                } else {
+                    goalNodeSelect.value = '';
+                }
+            } else {
+                startNodeSelect.value = '';
+                goalNodeSelect.value = '';
+            }
+            renderHeuristicInputs(); // Update heuristic table whenever goal or nodes change
+        }
+
+        function renderHeuristicInputs() {
+            heuristicTableBody.innerHTML = ''; // Clear existing rows
+            const nodeIds = Object.keys(NODES_DATA).sort();
+
+            if (nodeIds.length === 0) {
+                const row = heuristicTableBody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 2;
+                cell.textContent = "Add nodes to define their heuristic values.";
+                return;
+            }
+
+            nodeIds.forEach(nodeId => {
+                const row = heuristicTableBody.insertRow();
+                const idCell = row.insertCell();
+                const hInputCell = row.insertCell();
+
+                idCell.textContent = nodeId;
+
+                const hInput = document.createElement('input');
+                hInput.type = 'number';
+                hInput.className = 'w-full p-1 text-sm border rounded';
+                hInput.placeholder = 'Enter h value';
+                hInput.value = NODES_DATA[nodeId].h !== undefined ? NODES_DATA[nodeId].h : 0; // Pre-fill if exists, else 0
+                hInput.setAttribute('data-node-id', nodeId); // Store node ID in data attribute
+
+                hInputCell.appendChild(hInput);
+            });
+        }
+
+        function applyHeuristicInputs() {
+            const inputs = heuristicTableBody.querySelectorAll('input[type="number"]');
+            inputs.forEach(input => {
+                const nodeId = input.getAttribute('data-node-id');
+                const hValue = parseFloat(input.value);
+                if (!isNaN(hValue) && NODES_DATA[nodeId]) {
+                    NODES_DATA[nodeId].h = hValue;
+                } else if (NODES_DATA[nodeId]) {
+                    NODES_DATA[nodeId].h = 0; // Default to 0 if invalid input
+                    input.value = 0; // Update input field
+                }
+            });
+            alert("Heuristic values updated!");
+            resetSimulationResults(); // Clear simulation results as heuristics changed
+        }
+
+        // --- Event Listeners and Initial Setup ---
+        window.onload = () => {
+            // All initial setups and event listeners are now inside window.onload
+            populateNodeSelects();
+            drawGraph(); // Draw empty canvas initially
+            setMode('none'); // Set initial mode
+            renderHeuristicInputs(); // Initial call to populate table
+
+            // Graph Creation Buttons
+            addNodeBtn.addEventListener('click', addNodeFromInput);
+            addEdgeFromStringBtn.addEventListener('click', addEdgeFromString);
+            clearGraphBtn.addEventListener('click', clearGraph);
+            updateHeuristicsBtn.addEventListener('click', applyHeuristicInputs);
+            deleteNodeBtn.addEventListener('click', deleteNode);
+
+            // Canvas Interactions (only for dragging)
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseout', handleCanvasMouseOut); // Use specific mouseout handler
+
+            // A* Control Buttons
+            runAStarBtn.addEventListener('click', aStarSearch);
+            resetSimulationBtn.addEventListener('click', resetSimulation);
+            goalNodeSelect.addEventListener('change', renderHeuristicInputs);
+        };
+
+        // Optional: Make canvas responsive on window resize (redraws, but doesn't resize actual canvas element)
+        window.addEventListener('resize', () => {
+            if (animationSteps.length > 0 && currentAnimationFrame > 0) {
+                const step = animationSteps[currentAnimationFrame - 1];
+                drawGraph(step, step.path, step.currentNode, step.nodeDetailsMap);
+            } else {
+                drawGraph();
+            }
+        });
+    </script>
+</body>
+</html>
